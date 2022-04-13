@@ -46,7 +46,7 @@ main.cpp -> uart2espnow_sender.ino
 # 必要なライブラリ
 
 ## [M5Unified](https://github.com/m5stack/M5Unified)
-※ arduino-esp32 2.0.3RC1の変更のため、M5Unified v0.0.6だとテキストスクロールが動きません。developブランチ
+※ arduino-esp32 2.0.3RC1の変更のため、M5Unified v0.0.6だとテキストスクロールが動きません。2022/04/13時点ではM5GFXとM5Unifiedのdevelopブランチを利用するとテキストスクロールが動きます。
 
 ## arduino-esp32は2.0.3RC1が必要
 
