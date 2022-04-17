@@ -4,7 +4,8 @@ UARTで受け取ったデータをESP-NOWで同報するファームウェア
 # 概要
 M5StickCPlusやM5Atomに書き込んでPCやラズパイとUSBで接続し、テキストデータ(JSON)を送信するために作成しました。
 
-UART（Serial）から受け取ったデータをESP-NOWで複数の端末に送ることができます。ESP-NOWの制限(上限250バイト)で240バイトまでのデータに収めてください。分割する機能もありますが、試験的に実装しているため不安定です。
+UART（Serial）から受け取ったデータをESP-NOWで複数の端末に送ることができます。ESP-NOWの制限(上限250バイト)で240バイトまでのデータに収めてください。
+※ 分割する機能も実装していますが２台以上送信しようとすると動きません。
 
 [stackchan_test](https://github.com/mongonta0716/stackchan_test)と組み合わせて利用します。
 
@@ -17,7 +18,7 @@ ESP-NOWの仕組み上WiFiのチャンネルを送信側、受信側で固定す
 ※ WiFiルーターを経由しない場合は、WIFI_DEFAULT_CHANNELの値が送信側、受信側で同じであれば大丈夫です。
 
 ```
-#define WIFI_DEFAULT_CHANNEL 1
+#define WIFI_DEFAULT_CHANNEL 8
 ```
 
 ## 受信側のMacアドレスと接続台数の設定
@@ -27,8 +28,8 @@ ESP-NOWの仕組み上WiFiのチャンネルを送信側、受信側で固定す
 ```
 #define MAX_CLIENT 2   // 接続先のESP32の台数 
 uint8_t mac[][6] = {
-  { 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa },  // 接続先1のMACアドレス
-  { 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb },  // 接続先2のMACアドレス
+  { 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX },  // 接続先1のMACアドレス
+  { 0xYY, 0xYY, 0xYY, 0xYY, 0xYY, 0xYY },  // 接続先2のMACアドレス
 // { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC }, // 接続先の端末分だけ配列を用意する
 };
 ```

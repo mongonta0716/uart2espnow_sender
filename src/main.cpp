@@ -1,7 +1,3 @@
-// uart2espnow sender
-// UARTから受け取ったデータをESP-NOWで同報する
-// Copyright (c) 2022 Takao Akaki
-
 #include <Arduino.h>
 #include <M5Unified.h>
 #include <esp_now.h>
@@ -14,22 +10,46 @@ const esp_now_peer_info_t *peer = &esp_ap;
 
 // ESP-NOWで使用するWiFiチャンネルを固定（※ルーターの設定も必要な場合があります。）
 // 送信側と受信側でチャンネルを同じにしないといけません。
-#define WIFI_DEFAULT_CHANNEL 1
+#define WIFI_DEFAULT_CHANNEL 8
 #define WIFI_SECONDORY_CHANNEL 2
 
 #define UART_BUFFER_MAX 1000
 char uart_data[1000] = "\0";
-uint16_t last_data_length = 0;
-uint8_t data_send_count = 0;
 
 char *json_buffer;
 
 #define MAX_CLIENT 2   // 接続先のESP32の台数 
 uint8_t mac[][6] = {
-  { 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa },  // 接続先1のMACアドレス
-  { 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb },  // 接続先2のMACアドレス
+  { 0xXX, 0XX, 0xXX, 0xXX, 0xXX, 0xXX },  // 接続先1のMACアドレス(Core2 A04)
+  { 0xYY, 0xYY 0xYY, 0xYY, 0xYY 0xYY },  // 接続先1のMACアドレス(Core2 A04)
 // { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC }, // 接続先の端末分だけ配列を用意する
 };
+
+uint16_t last_data_length[MAX_CLIENT];
+uint8_t data_send_count[MAX_CLIENT];
+
+uint8_t searchTerminal(const uint8_t *mac_addr) {
+    uint8_t client_no = 255;
+    for (int i=0; i<MAX_CLIENT; i++) {
+        uint8_t match_count = 0;
+        for (int j=0; j<6; j++) {
+            if (mac[i][j] == (uint8_t)mac_addr[j]) {
+                match_count++;    
+            }
+        }
+        if (match_count == 6) {
+            //Serial.printf("match terminal no:%d\n", i);
+            client_no = i;
+            break;
+        }
+    }
+    if (client_no == 255) {
+      Serial.printf("No match client mac:%0x:%0x:%0x:%0x:%0x:%0x\n", mac_addr[0], mac_addr[1], mac_addr[2],
+                                                                     mac_addr[3], mac_addr[4], mac_addr[6] );
+    }
+    Serial.printf("Client no:%d\n", client_no);
+    return client_no;
+}
 
 void dataSend(int client_number, char* buffer, int data_length) {
   for (int j=0; j<6; j++) {
@@ -42,6 +62,7 @@ void dataSend(int client_number, char* buffer, int data_length) {
     esp_now_send(peer_addr, (uint8_t *)buffer, data_length);
   }
   esp_now_del_peer(peer_addr);
+  delay(50);
 }
 
 void dataSend(const uint8_t *mac_addr, char* buffer, int data_length) {
@@ -55,34 +76,36 @@ void dataSend(const uint8_t *mac_addr, char* buffer, int data_length) {
     esp_now_send(peer_addr, (uint8_t *)buffer, data_length);
   }
   esp_now_del_peer(peer_addr);
+  delay(50);
 }
 
 
 void onRecvData(const uint8_t *mac_addr, const uint8_t *data, int len) {
-  //M5.Display.println("onRecvData");
+  M5.Display.println("onRecvData");
   // ログを画面表示したい場合は排他をかけないと失敗する場合あり
   char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
       mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  int client_no = searchTerminal((const uint8_t *)mac_addr);
   int data_length = 0;
-  if (last_data_length > 240) {
+  if (last_data_length[client_no] > 240) {
     for (int i=0; i<240; i++) {
-      json_buffer[i] = uart_data[i + 240 * data_send_count];
+      json_buffer[i] = uart_data[i + 240 * data_send_count[client_no]];
     }
     json_buffer[240] = '\0';
     strcat(json_buffer, "_NXT_");
-    last_data_length = last_data_length - 240;
+    last_data_length[client_no] = last_data_length[client_no] - 240;
     data_length = 245;
-    data_send_count++;
+    data_send_count[client_no]++;
   } else {
-    for (int i=0; i<last_data_length; i++) {
-      json_buffer[i] = uart_data[i + 240 * data_send_count];
+    for (int i=0; i<last_data_length[client_no]; i++) {
+      json_buffer[i] = uart_data[i + 240 * data_send_count[client_no]];
     }
-    json_buffer[last_data_length] = '\0';
+    json_buffer[last_data_length[client_no]] = '\0';
     strcat(json_buffer, "_END_");
-    data_length = last_data_length + 5;
-    last_data_length = 0;
-    data_send_count = 0;
+    data_length = last_data_length[client_no] + 5;
+    last_data_length[client_no] = 0;
+    data_send_count[client_no] = 0;
   }
   dataSend(mac_addr, json_buffer, data_length);
 }
@@ -99,9 +122,11 @@ void UART_RX_IRQ() {
       }
       json_buffer[240] = '\0';
       strcat(json_buffer, "_NXT_");
-      last_data_length = data_length - 240;
-      data_length = 245;
-      data_send_count++;
+      for (int i=0; i<MAX_CLIENT; i++) {
+        last_data_length[i] = data_length - 240;
+        data_length = 245;
+        data_send_count[i]++;
+      }
     } else {
       for (int i=0; i<data_length; i++) {
         json_buffer[i] = uart_data[i];
@@ -109,9 +134,12 @@ void UART_RX_IRQ() {
       json_buffer[data_length] = '\0';
       strcat(json_buffer, "_END_"); //("\n","_END_");
       data_length += 5;
-      data_send_count = 0;
+      for (int i=0; i<MAX_CLIENT; i++) {
+        last_data_length[i] = 0;
+        data_send_count[i] = 0;
+      }
     }
-    M5.Display.printf("json:%s\n", json_buffer);
+    //M5.Display.printf("json:%s\n", json_buffer);
     for (int i=0; i< MAX_CLIENT; i++) {
       dataSend(i, json_buffer, data_length);
     }
