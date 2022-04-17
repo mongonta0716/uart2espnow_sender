@@ -61,7 +61,7 @@ JSONデータをシリアルに書き込む例です。
 import serial
 import json
 
-data = [{"aqtalk": "konnichiwa."}, {"motion":0}, {"expression":0}, {"test11": 1}, {"test12": 1}, {"test13": 1} , {"test14": 1}, {"tes5": 1} ] 
+data = {"aqtalk": "konnichiwa.", "motion":0, "expression":0, "test11": 1, "test12": 1, "test13": 1 , "test14": 1, "tes5": 1} 
 print(len(data))
 ser = serial.Serial('/dev/ttyUSB0', 115200)
 send_data = json.dumps(data)
